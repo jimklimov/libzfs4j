@@ -18,6 +18,7 @@
  *
  * CDDL HEADER END
  */
+
 package org.jvnet.solaris.libzfs.jna;
 
 import org.jvnet.solaris.avl.avl_node_t;
@@ -45,6 +46,7 @@ import java.util.List;
 /**
  * @author Kohsuke Kawaguchi
  * @author Leo Xu
+ * @author Jim Klimov
  */
 public interface libzfs extends Library {
     public static final libzfs LIBZFS = (libzfs) Native.loadLibrary("zfs",libzfs.class);
@@ -196,6 +198,7 @@ long zpool_get_prop_int(zpool_handle_t pool, zpool_prop_t prop, EnumByReference<
 String zpool_prop_to_name(zpool_prop_t prop);
 String zpool_prop_values(zpool_prop_t prop);
 
+/* Note: Earlier versions named those PointerByReference args "ppchBuf" */
 int/*ZPoolStatus*/ zpool_get_status(zpool_handle_t handle, /*char ** */ PointerByReference msgid);
 int/*ZPoolStatus*/ zpool_import_status(nvlist_t config, PointerByReference misgid);
 // void zpool_dump_ddt(ddt_stat_t dds_total, ddt_histogram_t ddh);
@@ -204,6 +207,7 @@ int/*ZPoolStatus*/ zpool_import_status(nvlist_t config, PointerByReference misgi
  * Statistics and configuration functions.
  */
 nvlist_t zpool_get_config(zpool_handle_t pool, /*nvlist_t ** */ PointerByReference ppchNVList);
+/* Note: Earlier versions named this BooleanByReference arg "r" */
 int zpool_refresh_stats(zpool_handle_t pool, BooleanByReference missing);
 int zpool_get_errlog(zpool_handle_t pool, /*nvlist_t ** */ PointerByReference ppchNVList);
 
@@ -220,6 +224,8 @@ int zpool_import_props(libzfs_handle_t lib, nvlist_t config, String newname,
  * Search for pools to import
  */
 nvlist_t zpool_find_import(libzfs_handle_t lib, int argc, /*char ** */PointerByReference argv);
+nvlist_t zpool_find_import(libzfs_handle_t lib, int _1, /*char ** */PointerByReference _2, boolean _3);
+nvlist_t zpool_find_import_cached(libzfs_handle_t lib, String _1, boolean _2);
 nvlist_t zpool_find_import_cached(libzfs_handle_t lib, String cachefile, String poolname, long guid);
 nvlist_t zpool_find_import_byname(libzfs_handle_t lib, int argc, /*char ** */ PointerByReference argv, String pool);
 nvlist_t zpool_find_import_byguid(libzfs_handle_t lib, int argc, /*char ** */ PointerByReference argv, long guid);
@@ -230,6 +236,7 @@ nvlist_t zpool_find_import_activeok(libzfs_handle_t lib, int argc, /*char ** */ 
  */
 //struct zfs_cmd;
 
+String zpool_vdev_name(libzfs_handle_t lib, zpool_handle_t pool, nvlist_t _3);
 String zpool_vdev_name(libzfs_handle_t lib, zpool_handle_t pool, nvlist_t nv, BooleanByReference verbose);
 int zpool_upgrade(zpool_handle_t pool , long new_version);
 int zpool_get_history(zpool_handle_t pool, /*nvlist_t ** */ PointerByReference ppNVList);
@@ -328,6 +335,9 @@ int zfs_iter_root(libzfs_handle_t lib, zfs_iter_f callback, Pointer arg);
 int zfs_iter_children(zfs_handle_t handle, zfs_iter_f callback, Pointer arg);
 int zfs_iter_dependents(zfs_handle_t handle, boolean _2, zfs_iter_f callback, Pointer arg);
 int zfs_iter_filesystems(zfs_handle_t handle, zfs_iter_f callback, Pointer arg);
+/* The legacy (Sun/Oracle Solaris; OpenSolaris) function ABI signature: */
+int zfs_iter_snapshots(zfs_handle_t handle, zfs_iter_f callback, Pointer arg);
+/* The OpenZFS function ABI signature since ~2012 (illumos since mid-2016, BSD, ZoL, ...): */
 int zfs_iter_snapshots(zfs_handle_t handle, boolean simple, zfs_iter_f callback, Pointer arg);
 int zfs_iter_snapshots_sorted(zfs_handle_t handle, zfs_iter_f callback, Pointer arg);
 int zfs_iter_snapspec(zfs_handle_t handle, zfs_iter_f callback, Pointer arg);
@@ -337,7 +347,9 @@ int zfs_iter_snapspec(zfs_handle_t handle, zfs_iter_f callback, Pointer arg);
  */
 int zfs_create(libzfs_handle_t lib, String name, int/*zfs_type_t*/ type, nvlist_t props);
 int zfs_create_ancestors(libzfs_handle_t lib, String _2);
+int zfs_destroy(zfs_handle_t handle);
 int zfs_destroy(zfs_handle_t handle, boolean defer);
+int zfs_destroy_snaps(zfs_handle_t handle, String name);
 int zfs_destroy_snaps(zfs_handle_t handle, String name, boolean _3);
 int zfs_clone(zfs_handle_t handle, String name, nvlist_t _3);
 /*
@@ -350,6 +362,7 @@ int zfs_snapshot(libzfs_handle_t lib, String fullNameWithAtSnapShot, boolean rec
         
 int zfs_rollback(zfs_handle_t handle1, zfs_handle_t handle2, boolean _3);
 int zfs_rename(zfs_handle_t handle, String name, boolean _3);
+int zfs_send(zfs_handle_t handle, String _2, String _3, boolean _4, boolean _5, boolean _6, boolean _7, int _8);
 int zfs_promote(zfs_handle_t handle);
 
 //typedef struct sendflags {
@@ -417,6 +430,7 @@ int zfs_promote(zfs_handle_t handle);
 //
 //    extern int zfs_receive(libzfs_handle_t *, const char *, recvflags_t *,
 //        int, avl_tree_t *);
+int zfs_receive(libzfs_handle_t lib, String name, recvflags_t _3, int _4, avl_tree_t _5);
 
 /*
  * Miscellaneous functions.

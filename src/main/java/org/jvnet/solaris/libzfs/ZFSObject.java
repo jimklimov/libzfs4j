@@ -46,6 +46,7 @@ import com.sun.jna.ptr.IntByReference;
  * Represents ZFS snapshot, file system, volume, or pool.
  * 
  * @author Kohsuke Kawaguchi
+ * @author Jim Klimov
  */
 public abstract class ZFSObject implements Comparable<ZFSObject>, ZFSContainer {
 
@@ -231,7 +232,9 @@ public abstract class ZFSObject implements Comparable<ZFSObject>, ZFSContainer {
      * {@link ErrorCode#EZFS_EXISTS}.
      */
     public void destroy() {
-        if (LIBZFS.zfs_destroy(handle,false/*?*/) != 0)
+/* TODO: ABI */
+//        if (LIBZFS.zfs_destroy(handle,false/*?*/) != 0)
+        if (LIBZFS.zfs_destroy(handle) != 0)
             throw new ZFSException(library,"Failed to destroy "+getName());
     }
 
@@ -448,14 +451,45 @@ public abstract class ZFSObject implements Comparable<ZFSObject>, ZFSContainer {
      */
     public Set<ZFSSnapshot> snapshots() {
         final Set<ZFSSnapshot> set = new TreeSet<ZFSSnapshot>();
-        LIBZFS.zfs_iter_snapshots(handle, false, new libzfs.zfs_iter_f() {
-            public int callback(zfs_handle_t handle, Pointer arg) {
-                set.add((ZFSSnapshot)ZFSObject.create(library, handle));
-                return 0;
-            }
-        }, null);
+        String abi = library.libzfs4j_features_get("LIBZFS4J_ABI_zfs_iter_snapshots");
+        if (abi.equals("openzfs")) {
+            LIBZFS.zfs_iter_snapshots(handle, false, new libzfs.zfs_iter_f() {
+                public int callback(zfs_handle_t handle, Pointer arg) {
+                    set.add((ZFSSnapshot)ZFSObject.create(library, handle));
+                    return 0;
+                }
+            }, null);
+        } else {
+            LIBZFS.zfs_iter_snapshots(handle, new libzfs.zfs_iter_f() {
+                public int callback(zfs_handle_t handle, Pointer arg) {
+                    set.add((ZFSSnapshot)ZFSObject.create(library, handle));
+                    return 0;
+                }
+            }, null);
+        }
         return set;
     }
+
+    /**
+     * Grants the specified set of permissions to this dataset.
+     */
+    public void allow(ACLBuilder acl) {
+        for (PermissionBuilder b : acl.builders) {
+            if(LIBZFS.zfs_perm_set(handle,b.toNativeFormat(this))!=0)
+                throw new ZFSException(library);
+        }
+    }
+
+    /**
+     * Revokes the specified set of permissions to this dataset.
+     */
+    public void unallow(ACLBuilder acl) {
+        for (PermissionBuilder b : acl.builders) {
+            if(LIBZFS.zfs_perm_remove(handle,b.toNativeFormat(this))!=0)
+                throw new ZFSException(library);
+        }
+    }
+
 
     /**
      * Returns {@link #getName() the name}.
