@@ -222,8 +222,10 @@ public class LibZFS implements ZFSContainer {
             initFeatures();
         }
 
-        if (!libzfsNotEnabledReason.isEmpty())
+        if (!libzfsNotEnabledReason.isEmpty()) {
+            LOGGER.log(Level.FINE, "libzfs4j autodetect: " + libzfsNotEnabledReason);
             throw new LinkageError(libzfsNotEnabledReason);
+        }
 
         libzfs_enabled = true;
     }
